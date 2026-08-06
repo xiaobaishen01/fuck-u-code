@@ -10,8 +10,13 @@ const __dirname = dirname(__filename);
 const hasMemoryFlag = process.execArgv.some(arg => arg.startsWith('--max-old-space-size'));
 
 if (!hasMemoryFlag) {
+  const DEFAULT_MEMORY_MB = 4096;
+  const configuredMemory = Number(process.env.FUCK_U_CODE_MAX_MEMORY);
+  const memoryMb = Number.isFinite(configuredMemory) && configuredMemory >= 512
+    ? Math.floor(configuredMemory)
+    : DEFAULT_MEMORY_MB;
   const args = [
-    '--max-old-space-size=8192',
+    `--max-old-space-size=${memoryMb}`,
     join(__dirname, '..', 'dist', 'index.js'),
     ...process.argv.slice(2)
   ];
@@ -41,9 +46,16 @@ if (!hasMemoryFlag) {
   child.on('exit', (code) => {
     if (code === 133 && inFatalError) {
       process.exit(0);
+    } else if (code === null) {
+      // Killed by a signal (or crashed) must not be reported as success.
+      process.exit(1);
     } else {
-      process.exit(code || 0);
+      process.exit(code);
     }
+  });
+
+  child.on('error', () => {
+    process.exit(1);
   });
 } else {
   import('../dist/index.js');

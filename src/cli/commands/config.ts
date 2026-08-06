@@ -5,17 +5,18 @@
 import { Command } from 'commander';
 import { resolve, join } from 'node:path';
 import { homedir } from 'node:os';
-import { readFile, writeFile } from 'node:fs/promises';
+import { chmod, readFile, writeFile } from 'node:fs/promises';
 import { loadConfig, DEFAULT_CONFIG } from '../../config/index.js';
 import { exists } from '../../utils/fs.js';
+import { redactApiKey } from '../../utils/secrets.js';
 import { t } from '../../i18n/index.js';
 import chalk from 'chalk';
 
 /** Supported dot-notation keys for `config set` */
 const SETTABLE_KEYS: Record<string, (config: Record<string, unknown>, value: string) => void> = {
   'i18n.locale': (config, value) => {
-    if (!['en', 'zh', 'ru'].includes(value)) {
-      throw new Error(`Invalid locale: ${value}. Must be one of: en, zh, ru`);
+    if (!['en', 'zh', 'ru', 'zh_TW'].includes(value)) {
+      throw new Error(`Invalid locale: ${value}. Must be one of: en, zh, ru, zh_TW`);
     }
     ensureObject(config, 'i18n');
     (config.i18n as Record<string, unknown>).locale = value;
@@ -110,7 +111,9 @@ ${t('cli_examples')}
 async function showConfig(projectPath: string): Promise<void> {
   const config = await loadConfig(projectPath);
   console.log(chalk.bold.cyan(`\n${t('config_current')}\n`));
-  console.log(chalk.gray(JSON.stringify(config, null, 2)));
+  console.log(
+    chalk.gray(JSON.stringify(redactApiKey(config as unknown as Record<string, unknown>), null, 2))
+  );
 }
 
 async function initConfig(projectPath: string): Promise<void> {
@@ -158,5 +161,10 @@ async function setConfig(key: string, value: string): Promise<void> {
   }
 
   await writeFile(configPath, JSON.stringify(config, null, 2) + '\n', 'utf-8');
+  try {
+    await chmod(configPath, 0o600);
+  } catch {
+    // Windows does not fully support POSIX permissions; best effort only.
+  }
   console.log(chalk.green(t('config_set_success', { key, value })));
 }

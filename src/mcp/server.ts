@@ -72,7 +72,11 @@ server.registerTool(
         .default('json')
         .describe('Output format (json for full data, markdown for summary)'),
       top: z.number().optional().default(10).describe('Number of worst files to show'),
-      locale: z.enum(['en', 'zh', 'ru']).optional().default('en').describe('Output language'),
+      locale: z
+        .enum(['en', 'zh', 'ru', 'zh_TW'])
+        .optional()
+        .default('en')
+        .describe('Output language'),
     },
   },
   async ({ path: projectPath, verbose, format, top, locale }) => {
@@ -116,7 +120,11 @@ server.registerTool(
       baseUrl: z.string().optional().describe('Custom API base URL'),
       apiKey: z.string().optional().describe('API key (can also use environment variables)'),
       top: z.number().optional().default(5).describe('Number of worst files to review'),
-      locale: z.enum(['en', 'zh', 'ru']).optional().default('en').describe('Output language'),
+      locale: z
+        .enum(['en', 'zh', 'ru', 'zh_TW'])
+        .optional()
+        .default('en')
+        .describe('Output language'),
       verbose: z
         .boolean()
         .optional()

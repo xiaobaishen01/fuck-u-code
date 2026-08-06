@@ -51,7 +51,9 @@ export async function loadNestedGitignores(
       if (entry.name === '.git') continue;
 
       if (entry.isDirectory()) {
-        const subPath = relativePath ? join(relativePath, entry.name) : entry.name;
+        // Always use forward slashes: the matcher normalizes paths to '/',
+        // and join() would produce backslashes on Windows.
+        const subPath = relativePath ? `${relativePath}/${entry.name}` : entry.name;
 
         if (rootIgnore?.ignores(subPath)) {
           continue;

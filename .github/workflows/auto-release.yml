@@ -62,6 +62,9 @@ jobs:
       - name: Test
         run: npx vitest --run
 
+      - name: Test
+        run: npx vitest --run
+
   create-release:
     needs: [check-version, ci]
     if: needs.check-version.outputs.version-changed == 'true'

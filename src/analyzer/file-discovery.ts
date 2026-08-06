@@ -23,6 +23,34 @@ export interface FileDiscoveryResult {
   totalScanned: number;
 }
 
+/** Well-known non-code directories skipped by default. */
+const DEFAULT_IGNORED_DIRS = [
+  '.git',
+  'node_modules',
+  'vendor',
+  'dist',
+  'build',
+  '.next',
+  '__pycache__',
+  'target',
+  '.venv',
+  'venv',
+];
+
+function isDirExplicitlyIncluded(patterns: string[], dir: string): boolean {
+  return patterns.some((pattern) => {
+    const normalized = pattern.replace(/\\/g, '/');
+    return (
+      normalized === dir ||
+      normalized === `${dir}/` ||
+      normalized === `${dir}/**` ||
+      normalized === `**/${dir}/**` ||
+      normalized.startsWith(`${dir}/`) ||
+      normalized.includes(`/${dir}/`)
+    );
+  });
+}
+
 /**
  * Discover all analyzable files in the project
  */
@@ -36,22 +64,19 @@ export async function discoverFiles(config: RuntimeConfig): Promise<FileDiscover
     rootIgnore.add(pattern);
   }
 
+  // Default-ignore well-known non-code directories unless the user explicitly
+  // included them. Adding them to the root matcher also lets the nested
+  // .gitignore walk skip these trees for performance.
+  const ignoredDirs = DEFAULT_IGNORED_DIRS.filter((dir) => !isDirExplicitlyIncluded(include, dir));
+  for (const dir of ignoredDirs) {
+    rootIgnore.add(`${dir}/`);
+  }
+
   const nestedIgnores = await loadNestedGitignores(projectPath);
   const matcher = createMatcher(rootIgnore, nestedIgnores);
 
-  // Common non-code directories to skip at glob level for performance
-  const globIgnore = [
-    '.git/**',
-    'node_modules/**',
-    'vendor/**',
-    'dist/**',
-    'build/**',
-    '.next/**',
-    '__pycache__/**',
-    'target/**',
-    '.venv/**',
-    'venv/**',
-  ];
+  // Skip the same directories at glob level for performance.
+  const globIgnore = ignoredDirs.map((dir) => `${dir}/**`);
 
   const allFiles: string[] = [];
   for (const pattern of include) {

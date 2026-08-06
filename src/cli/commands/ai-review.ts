@@ -16,6 +16,7 @@ import {
   renderAIReviewHtml,
   type AIReviewData,
 } from '../output/ai-review-output.js';
+import { writeTextOutput } from '../output/render-analysis.js';
 import { getTerminalWidth } from '../../utils/terminal.js';
 import chalk from 'chalk';
 
@@ -25,7 +26,7 @@ interface AIReviewOptions {
   baseUrl?: string;
   apiKey?: string;
   verbose?: boolean;
-  locale?: 'en' | 'zh' | 'ru';
+  locale?: 'en' | 'zh' | 'ru' | 'zh_TW';
   top?: number;
   format?: 'console' | 'markdown' | 'html';
   output?: string;
@@ -43,7 +44,7 @@ export function createAIReviewCommand(): Command {
     .option('-k, --api-key <key>', 'API key (can also use environment variables)')
     .option('-t, --top <number>', 'Number of worst files to review (default: 5)', parseInt)
     .option('-v, --verbose', 'Show verbose output')
-    .option('-l, --locale <locale>', 'Language: en, zh, ru')
+    .option('-l, --locale <locale>', 'Language: en, zh, ru, zh_TW')
     .option('-f, --format <format>', t('cmd_ai_review_format_help'))
     .option('-o, --output <file>', 'Write output to file instead of stdout')
     .addHelpText(
@@ -195,22 +196,14 @@ async function runAIReview(projectPath: string, options: AIReviewOptions): Promi
     switch (format) {
       case 'markdown': {
         const markdown = renderAIReviewMarkdown(reviews);
-        if (outputFile) {
-          const { writeFile } = await import('node:fs/promises');
-          await writeFile(outputFile, markdown, 'utf-8');
-          console.log(t('outputWritten', { file: outputFile }));
-        } else {
+        if (!(await writeTextOutput(markdown, outputFile))) {
           console.log(renderMarkdownToTerminal(markdown));
         }
         break;
       }
       case 'html': {
         const html = renderAIReviewHtml(reviews);
-        if (outputFile) {
-          const { writeFile } = await import('node:fs/promises');
-          await writeFile(outputFile, html, 'utf-8');
-          console.log(t('outputWritten', { file: outputFile }));
-        } else {
+        if (!(await writeTextOutput(html, outputFile))) {
           console.log(chalk.yellow(t('output_html_requires_file')));
           renderConsoleReviews(reviews);
         }

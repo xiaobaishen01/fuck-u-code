@@ -700,7 +700,7 @@ export class TreeSitterParser implements IParser {
    */
   private calculateOwnLineCount(node: Parser.SyntaxNode): number {
     const totalLineCount = node.endPosition.row - node.startPosition.row + 1;
-    const nestedRanges: Array<[number, number]> = [];
+    const nestedRanges: [number, number][] = [];
 
     const collectNestedFunctionRanges = (current: Parser.SyntaxNode): void => {
       for (const child of current.namedChildren) {
@@ -726,10 +726,15 @@ export class TreeSitterParser implements IParser {
     nestedRanges.sort((a, b) => a[0] - b[0]);
 
     let excludedLineCount = 0;
-    let [rangeStart, rangeEnd] = nestedRanges[0]!;
+    const [firstStart, firstEnd] = nestedRanges[0] ?? [0, 0];
+    let [rangeStart, rangeEnd] = [firstStart, firstEnd];
 
     for (let i = 1; i < nestedRanges.length; i++) {
-      const [start, end] = nestedRanges[i]!;
+      const current = nestedRanges[i];
+      if (!current) {
+        break;
+      }
+      const [start, end] = current;
       if (start <= rangeEnd + 1) {
         rangeEnd = Math.max(rangeEnd, end);
         continue;

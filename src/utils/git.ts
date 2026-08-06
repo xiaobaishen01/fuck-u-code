@@ -3,7 +3,7 @@
  * Supports cloning remote repositories to local temporary directories
  */
 
-import { exec } from 'node:child_process';
+import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { rm } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -12,7 +12,7 @@ import { randomUUID } from 'node:crypto';
 import { exists } from './fs.js';
 import { t } from '../i18n/index.js';
 
-const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
 
 /**
  * Git clone options
@@ -69,16 +69,17 @@ export async function gitClone(
     isTempDir = true;
   }
 
-  // Build git clone command
+  // Build git clone command. Use execFile (not exec) so arguments are never
+  // interpreted by a shell: a repository URL containing shell metacharacters
+  // must stay a plain argument instead of being executed.
   const args = ['clone', gitUrl, cloneTarget, ...extraArgs];
-  const command = `git ${args.join(' ')}`;
 
   try {
     // Check if git is available
-    await execAsync('git --version', { timeout: 5000 });
+    await execFileAsync('git', ['--version'], { timeout: 5000 });
 
     // Execute git clone
-    const { stdout, stderr } = await execAsync(command, {
+    const { stdout, stderr } = await execFileAsync('git', args, {
       timeout,
       encoding: 'utf-8',
     });
@@ -95,7 +96,10 @@ export async function gitClone(
     if (!cloned) {
       return {
         success: false,
-        error: t('error_git_clone_failed', { url: gitUrl, reason: t('error_target_dir_not_created') }),
+        error: t('error_git_clone_failed', {
+          url: gitUrl,
+          reason: t('error_target_dir_not_created'),
+        }),
         isTempDir,
       };
     }
@@ -145,34 +149,18 @@ export async function removeTempDir(dirPath: string, force = true): Promise<bool
 }
 
 /**
- * Parse git URL and extract repository name
- * @param gitUrl Git repository URL
- * @returns Repository name (without .git suffix)
- */
-export function parseRepoName(gitUrl: string): string {
-  // Remove trailing .git
-  let url = gitUrl.replace(/\.git$/, '');
-
-  // Handle SSH format: git@github.com:user/repo
-  if (url.startsWith('git@')) {
-    const match = /git@[^:]+:(.+)/.exec(url);
-    if (match?.[1]) {
-      url = match[1];
-    }
-  }
-
-  // Get the last segment of the path
-  const parts = url.split('/');
-  const repoName = parts[parts.length - 1];
-  return repoName || 'unknown-repo';
-}
-
-/**
  * Validate git URL format
  * @param gitUrl URL to validate
  * @returns Whether it is a valid git URL
  */
 export function isValidGitUrl(gitUrl: string): boolean {
+  // Reject whitespace, control characters and shell metacharacters so a URL
+  // can never be interpreted as more than one argument (defense in depth
+  // alongside execFile, which does not invoke a shell).
+  if (/[\s;|&$`"'<>()\\]/.test(gitUrl)) {
+    return false;
+  }
+
   // HTTPS format
   if (/^https?:\/\/.+/.test(gitUrl)) {
     return true;

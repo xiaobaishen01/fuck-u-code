@@ -61,7 +61,7 @@ fuck-u-code analyze . -e "**/*.test.ts"        # Exclude test files
 | `--output <file>`   | `-o`  | Write to file                      |
 | `--exclude <glob>`  | `-e`  | Additional exclude patterns        |
 | `--concurrency <n>` | `-c`  | Concurrent workers (default 8)     |
-| `--locale <lang>`   | `-l`  | Language: en/zh/ru/zh-tw           |
+| `--locale <lang>`   | `-l`  | Language: en/zh/ru/zh_TW           |
 
 ### AI Code Review
 
