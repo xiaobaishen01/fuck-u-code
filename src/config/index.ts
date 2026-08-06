@@ -25,6 +25,11 @@ const CONFIG_SEARCH_PLACES = [
   `${MODULE_NAME}.config.mjs`,
 ];
 
+/** CLI overrides allow partial nested output settings. */
+export type ConfigOverrides = Partial<Omit<Config, 'output'>> & {
+  output?: Partial<Config['output']>;
+};
+
 /**
  * Load configuration file
  * Search order: project path upward -> global ~/.fuckucoderc.json
@@ -277,7 +282,7 @@ export function loadAIConfig(configAI?: Config['ai'], cliModel?: string): AIConf
 export function createRuntimeConfig(
   projectPath: string,
   config: Config,
-  cliOptions: Partial<Config> = {}
+  cliOptions: ConfigOverrides = {}
 ): RuntimeConfig {
   const merged = mergeConfig(config, cliOptions);
   const aiConfig = merged.ai.enabled ? loadAIConfig(merged.ai, merged.ai.model) : undefined;
@@ -292,7 +297,7 @@ export function createRuntimeConfig(
 /**
  * Merge configurations
  */
-function mergeConfig(base: Config, override: Partial<Config>): Config {
+function mergeConfig(base: Config, override: ConfigOverrides): Config {
   return {
     ...base,
     ...override,

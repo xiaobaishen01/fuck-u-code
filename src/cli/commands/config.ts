@@ -111,9 +111,7 @@ ${t('cli_examples')}
 async function showConfig(projectPath: string): Promise<void> {
   const config = await loadConfig(projectPath);
   console.log(chalk.bold.cyan(`\n${t('config_current')}\n`));
-  console.log(
-    chalk.gray(JSON.stringify(redactApiKey(config as unknown as Record<string, unknown>), null, 2))
-  );
+  console.log(chalk.gray(JSON.stringify(redactApiKey(config), null, 2)));
 }
 
 async function initConfig(projectPath: string): Promise<void> {

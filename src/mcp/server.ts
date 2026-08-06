@@ -11,7 +11,12 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { z } from 'zod';
 import { resolve } from 'node:path';
 import { createAnalyzer } from '../analyzer/index.js';
-import { loadConfig, createRuntimeConfig, loadAIConfig } from '../config/index.js';
+import {
+  loadConfig,
+  createRuntimeConfig,
+  loadAIConfig,
+  type ConfigOverrides,
+} from '../config/index.js';
 import { createAIManager } from '../ai/index.js';
 import { MarkdownOutput } from '../cli/output/markdown.js';
 import { JsonOutput } from '../cli/output/json.js';
@@ -38,9 +43,9 @@ async function buildRuntimeConfig(
 
   const config = await loadConfig(projectPath);
   // mergeConfig spreads nested objects, so partial output fields are safe at runtime
-  const overrides: Partial<import('../config/schema.js').Config> = { verbose: options.verbose };
+  const overrides: ConfigOverrides = { verbose: options.verbose };
   if (options.top !== undefined) {
-    overrides.output = { top: options.top } as import('../config/schema.js').Config['output'];
+    overrides.output = { top: options.top };
   }
   return createRuntimeConfig(projectPath, config, overrides);
 }
@@ -134,7 +139,7 @@ server.registerTool(
   },
   async ({ path: projectPath, model, provider, baseUrl, apiKey, top, locale, verbose }) => {
     const resolvedPath = resolve(projectPath);
-    setLocale(locale as Locale);
+    setLocale(locale);
 
     const config = await loadConfig(resolvedPath);
     const runtimeConfig = createRuntimeConfig(resolvedPath, config, {
