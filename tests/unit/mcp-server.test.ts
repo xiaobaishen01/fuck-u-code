@@ -41,7 +41,7 @@ function sendMcpRequest(request: object): Promise<string> {
 
     setTimeout(() => {
       child.kill('SIGTERM');
-    }, 5000);
+    }, 15000);
   });
 }
 
@@ -65,12 +65,17 @@ describe('MCP Server', () => {
     expect(parsed.result.serverInfo.name).toBe('fuck-u-code');
     expect(parsed.result.serverInfo.version).toBe(VERSION);
     expect(parsed.result.capabilities.tools).toBeDefined();
-  });
+  }, 30000);
 
   it('should list analyze and ai-review tools', async () => {
-    const child = spawn('node', [SERVER_PATH], {
-      stdio: ['pipe', 'pipe', 'pipe'],
-    });
+    const child = spawn(
+      'node',
+      [SERVER_PATH],
+      {
+        stdio: ['pipe', 'pipe', 'pipe'],
+      },
+      30000
+    );
 
     const responses: string[] = [];
 
@@ -126,7 +131,20 @@ describe('MCP Server', () => {
       }) + '\n'
     );
 
-    await new Promise((r) => setTimeout(r, 1000));
+    // Wait (up to 15s) for the tools/list response instead of relying on a
+    // fixed sleep, which is flaky on slow machines.
+    const deadline = Date.now() + 15000;
+    const hasToolsResponse = () =>
+      responses.some((response) => {
+        try {
+          return JSON.parse(response).id === 2;
+        } catch {
+          return false;
+        }
+      });
+    while (!hasToolsResponse() && Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 200));
+    }
     child.stdin.end();
     child.kill('SIGTERM');
     await collectResponses;
@@ -156,9 +174,7 @@ describe('MCP Server', () => {
     expect(analyzeTool.inputSchema.properties).toHaveProperty('locale');
 
     // Verify ai-review tool has expected input schema properties
-    const aiReviewTool = parsed.result.tools.find(
-      (t: { name: string }) => t.name === 'ai-review'
-    );
+    const aiReviewTool = parsed.result.tools.find((t: { name: string }) => t.name === 'ai-review');
     expect(aiReviewTool.inputSchema.properties).toHaveProperty('path');
     expect(aiReviewTool.inputSchema.properties).toHaveProperty('model');
     expect(aiReviewTool.inputSchema.properties).toHaveProperty('provider');

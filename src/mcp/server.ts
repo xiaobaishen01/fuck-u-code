@@ -11,7 +11,12 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { z } from 'zod';
 import { resolve } from 'node:path';
 import { createAnalyzer } from '../analyzer/index.js';
-import { loadConfig, createRuntimeConfig, loadAIConfig } from '../config/index.js';
+import {
+  loadConfig,
+  createRuntimeConfig,
+  loadAIConfig,
+  type ConfigOverrides,
+} from '../config/index.js';
 import { createAIManager } from '../ai/index.js';
 import { MarkdownOutput } from '../cli/output/markdown.js';
 import { JsonOutput } from '../cli/output/json.js';
@@ -38,9 +43,9 @@ async function buildRuntimeConfig(
 
   const config = await loadConfig(projectPath);
   // mergeConfig spreads nested objects, so partial output fields are safe at runtime
-  const overrides: Partial<import('../config/schema.js').Config> = { verbose: options.verbose };
+  const overrides: ConfigOverrides = { verbose: options.verbose };
   if (options.top !== undefined) {
-    overrides.output = { top: options.top } as import('../config/schema.js').Config['output'];
+    overrides.output = { top: options.top };
   }
   return createRuntimeConfig(projectPath, config, overrides);
 }
@@ -72,7 +77,11 @@ server.registerTool(
         .default('json')
         .describe('Output format (json for full data, markdown for summary)'),
       top: z.number().optional().default(10).describe('Number of worst files to show'),
-      locale: z.enum(['en', 'zh', 'ru']).optional().default('en').describe('Output language'),
+      locale: z
+        .enum(['en', 'zh', 'ru', 'zh_TW'])
+        .optional()
+        .default('en')
+        .describe('Output language'),
     },
   },
   async ({ path: projectPath, verbose, format, top, locale }) => {
@@ -116,7 +125,11 @@ server.registerTool(
       baseUrl: z.string().optional().describe('Custom API base URL'),
       apiKey: z.string().optional().describe('API key (can also use environment variables)'),
       top: z.number().optional().default(5).describe('Number of worst files to review'),
-      locale: z.enum(['en', 'zh', 'ru']).optional().default('en').describe('Output language'),
+      locale: z
+        .enum(['en', 'zh', 'ru', 'zh_TW'])
+        .optional()
+        .default('en')
+        .describe('Output language'),
       verbose: z
         .boolean()
         .optional()
@@ -126,7 +139,7 @@ server.registerTool(
   },
   async ({ path: projectPath, model, provider, baseUrl, apiKey, top, locale, verbose }) => {
     const resolvedPath = resolve(projectPath);
-    setLocale(locale as Locale);
+    setLocale(locale);
 
     const config = await loadConfig(resolvedPath);
     const runtimeConfig = createRuntimeConfig(resolvedPath, config, {

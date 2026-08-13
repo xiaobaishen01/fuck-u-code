@@ -7,21 +7,12 @@ import { Command } from 'commander';
 import { resolve } from 'node:path';
 import { loadConfig, createRuntimeConfig } from '../../config/index.js';
 import { createAnalyzer } from '../../analyzer/index.js';
-import { ConsoleOutput } from '../output/console.js';
-import { MarkdownOutput } from '../output/markdown.js';
-import { JsonOutput } from '../output/json.js';
-import { HtmlOutput } from '../output/html.js';
+import { renderAnalysisResult } from '../output/render-analysis.js';
 import { createSpinner, ProgressBar } from '../../utils/progress.js';
 import { exists, isDirectory } from '../../utils/fs.js';
 import { t } from '../../i18n/index.js';
-import { renderMarkdownToTerminal } from '../../utils/markdown.js';
 import chalk from 'chalk';
-import {
-  gitClone,
-  removeTempDir,
-  isValidGitUrl,
-  type GitCloneResult,
-} from '../../utils/git.js';
+import { gitClone, removeTempDir, isValidGitUrl, type GitCloneResult } from '../../utils/git.js';
 
 interface CloneAnalyzeOptions {
   verbose?: boolean;
@@ -30,7 +21,7 @@ interface CloneAnalyzeOptions {
   output?: string;
   exclude?: string[];
   concurrency?: number;
-  locale?: 'en' | 'zh' | 'ru';
+  locale?: 'en' | 'zh' | 'ru' | 'zh_TW';
   keepTemp?: boolean;
 }
 
@@ -49,7 +40,7 @@ export function createCloneAnalyzeCommand(): Command {
     .option('-o, --output <file>', 'Write output to file instead of stdout')
     .option('-e, --exclude <patterns...>', 'Additional glob patterns to exclude')
     .option('-c, --concurrency <number>', 'Number of concurrent workers (default: 8)', parseInt)
-    .option('-l, --locale <locale>', 'Language: en, zh, ru (default: en)')
+    .option('-l, --locale <locale>', 'Language: en, zh, ru, zh_TW (default: en)')
     .option('--keep-temp', 'Keep the temporary directory after analysis')
     .addHelpText(
       'after',
@@ -167,53 +158,7 @@ async function runCloneAnalyze(gitUrl: string, options: CloneAnalyzeOptions): Pr
     state.progressBar?.succeed(t('analysisComplete'));
 
     // Output results
-    const outputFormat = runtimeConfig.output.format;
-    const outputFile = runtimeConfig.output.file;
-
-    switch (outputFormat) {
-      case 'markdown': {
-        const mdOutput = new MarkdownOutput(runtimeConfig);
-        const markdown = mdOutput.render(result);
-        if (outputFile) {
-          const { writeFile } = await import('node:fs/promises');
-          await writeFile(outputFile, markdown, 'utf-8');
-          console.log(t('outputWritten', { file: outputFile }));
-        } else {
-          console.log(renderMarkdownToTerminal(markdown));
-        }
-        break;
-      }
-      case 'json': {
-        const jsonOutput = new JsonOutput();
-        const json = jsonOutput.render(result);
-        if (outputFile) {
-          const { writeFile } = await import('node:fs/promises');
-          await writeFile(outputFile, json, 'utf-8');
-          console.log(t('outputWritten', { file: outputFile }));
-        } else {
-          console.log(json);
-        }
-        break;
-      }
-      case 'html': {
-        const htmlOutput = new HtmlOutput(runtimeConfig);
-        const html = htmlOutput.render(result);
-        if (outputFile) {
-          const { writeFile } = await import('node:fs/promises');
-          await writeFile(outputFile, html, 'utf-8');
-          console.log(t('outputWritten', { file: outputFile }));
-        } else {
-          console.log(chalk.yellow(t('output_html_requires_file')));
-          const consoleOutputFallback = new ConsoleOutput(runtimeConfig);
-          consoleOutputFallback.render(result);
-        }
-        break;
-      }
-      default: {
-        const consoleOutput = new ConsoleOutput(runtimeConfig);
-        consoleOutput.render(result);
-      }
-    }
+    await renderAnalysisResult(result, runtimeConfig);
 
     // Clean up temporary directory
     if (shouldCleanup && tempDir) {
